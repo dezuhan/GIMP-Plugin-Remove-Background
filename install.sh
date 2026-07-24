@@ -40,9 +40,8 @@ else
     python3 -m venv "$VENV_DIR"
 fi
 
-source "$VENV_DIR/bin/activate"
-pip install --upgrade pip --quiet
-pip install "onnxruntime-gpu" "rembg[gpu]" pillow "numpy>=2.0,<2.5"
+"$VENV_DIR/bin/python3" -m pip install --upgrade pip --quiet
+"$VENV_DIR/bin/python3" -m pip install "onnxruntime-gpu" "rembg[gpu]" pillow "numpy>=2.0,<2.5"
 # Workaround: onnxruntime-gpu may link against CUDA 13, but venv has CUDA 12 libs.
 # CUDA runtime is backward-compatible, so symlink 13 → 12.
 CUDA_LIB=$(find "$VENV_DIR" -path "*/cuda_runtime/lib" -type d 2>/dev/null | head -1)
@@ -50,8 +49,6 @@ if [ -n "$CUDA_LIB" ] && [ -f "$CUDA_LIB/libcudart.so.12" ] && [ ! -f "$CUDA_LIB
     ln -sf libcudart.so.12 "$CUDA_LIB/libcudart.so.13"
     echo "[✓] CUDA runtime symlinked"
 fi
-deactivate
-
 # 4. Grant Flatpak D-Bus permission
 if command -v flatpak &> /dev/null && flatpak info org.gimp.GIMP &> /dev/null; then
     echo ""
