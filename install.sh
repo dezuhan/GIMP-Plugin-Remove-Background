@@ -139,13 +139,23 @@ if command -v flatpak &> /dev/null && flatpak info org.gimp.GIMP &> /dev/null 2>
     flatpak override --user --talk-name=org.freedesktop.Flatpak org.gimp.GIMP
 fi
 
+# --- Copy Remove Background plugin files ---
+PLUGIN_TARGET="$GIMP_PLUGINS/remove-background"
+PLUGIN_DIR="$(dirname "$(readlink -f "$0")")"
+echo ""
+echo "[→] Installing Remove Background plugin to $PLUGIN_TARGET ..."
+mkdir -p "$PLUGIN_TARGET"
+cp "$PLUGIN_DIR/remove-background.py" "$PLUGIN_TARGET/"
+cp "$PLUGIN_DIR/run_worker.sh" "$PLUGIN_TARGET/"
+cp "$PLUGIN_DIR/bg_remove_worker.py" "$PLUGIN_TARGET/"
+chmod +x "$PLUGIN_TARGET/remove-background.py" 2>/dev/null || true
+chmod +x "$PLUGIN_TARGET/run_worker.sh" 2>/dev/null || true
+
 echo ""
 echo "============================================"
 echo " Shared engine ready at: $INSTALL_DIR"
-echo " Installed: $ONNX_PKG + $REMBG_PKG"
+echo " Installed:        $ONNX_PKG + $REMBG_PKG"
+echo " Plugin installed: $PLUGIN_TARGET"
 echo ""
-echo " To install a plugin, copy its files to:"
-echo "   $GIMP_PLUGINS/<plugin-name>/"
-echo ""
-echo " Restart GIMP after installing plugins."
+echo " Restart GIMP → Filters → Enhance → Remove Background"
 echo "============================================"
