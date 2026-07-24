@@ -5,8 +5,8 @@ AI-powered background removal using [rembg](https://github.com/danielgatis/rembg
 ## Requirements
 
 - GIMP 3.2+
-- NVIDIA GPU (CUDA) on Linux/Windows, Apple Silicon on macOS
 - Python 3.10+
+- **GPU (optional):** NVIDIA CUDA for best speed. Falls back to CPU automatically if no GPU detected. AMD/Intel GPUs work via DirectML on Windows.
 
 ## Install
 

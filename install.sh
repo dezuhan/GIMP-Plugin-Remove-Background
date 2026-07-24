@@ -11,15 +11,15 @@ echo "============================================"
 echo " GIMP AI Plugins — Shared Engine Setup"
 echo "============================================"
 
-# 1. Check NVIDIA driver
+# 1. GPU detection (optional — CPU fallback works)
 if command -v nvidia-smi &> /dev/null; then
     echo ""
-    echo "[✓] NVIDIA driver detected:"
+    echo "[✓] NVIDIA GPU detected (CUDA acceleration available):"
     nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 else
     echo ""
-    echo "[!] nvidia-smi not found. GPU features may not work."
-    echo "    Install NVIDIA driver: sudo apt install nvidia-driver-<version>"
+    echo "[i] No NVIDIA GPU detected. The plugin will work on CPU."
+    echo "    Performance will be slower but fully functional."
 fi
 
 # 2. Ensure python3-venv is available
