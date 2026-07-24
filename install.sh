@@ -1,8 +1,22 @@
 #!/usr/bin/env bash
-# GIMP AI Plugins — Shared Engine Setup
-# Creates ~/.gimp-plugin-shared-venv/venv used by all AI plugins (remove-bg, smart-select).
-# Run this ONCE. Then install each plugin by copying its files.
+# Shared engine setup for GIMP AI plugins.
+# Run this ONCE. Works on Linux, macOS, Windows (Git Bash).
 set -e
+
+# --- Platform detection ---
+case "$(uname -s)" in
+    Linux*)
+        GIMP_PLUGINS="$HOME/.config/GIMP/3.2/plug-ins"
+        ;;
+    Darwin*)
+        GIMP_PLUGINS="$HOME/Library/Application Support/GIMP/3.2/plug-ins"
+        ;;
+    CYGWIN*|MINGW*|MSYS*)
+        GIMP_PLUGINS="$APPDATA/GIMP/3.2/plug-ins"
+        # Convert Windows path to Unix-style for Git Bash
+        GIMP_PLUGINS="$(echo "$GIMP_PLUGINS" | sed 's|\\|/|g' | sed 's|C:|/c|')"
+        ;;
+esac
 
 INSTALL_DIR="$HOME/.gimp-plugin-shared-venv"
 VENV_DIR="$INSTALL_DIR/venv"
@@ -15,18 +29,29 @@ echo "============================================"
 if command -v nvidia-smi &> /dev/null; then
     echo ""
     echo "[✓] NVIDIA GPU detected (CUDA acceleration available):"
-    nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+    nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null || true
 else
     echo ""
     echo "[i] No NVIDIA GPU detected. The plugin will work on CPU."
-    echo "    Performance will be slower but fully functional."
 fi
 
-# 2. Ensure python3-venv is available
+# 2. Check Python 3
+if ! command -v python3 &> /dev/null; then
+    echo ""
+    echo "[!] Python 3 not found. Install it first:"
+    echo "    Linux:   sudo apt install python3 python3-venv"
+    echo "    macOS:   brew install python3"
+    echo "    Windows: https://python.org/downloads/"
+    exit 1
+fi
+
 if ! python3 -c "import venv" &> /dev/null; then
     echo ""
-    echo "[→] Installing python3-venv..."
-    sudo apt update && sudo apt install -y python3-venv
+    echo "[!] python3-venv not available. Install it first:"
+    echo "    Linux:   sudo apt install python3-venv"
+    echo "    macOS:   pip3 install virtualenv"
+    echo "    Windows: re-run Python installer and check 'pip' and 'tcl/tk'"
+    exit 1
 fi
 
 # 3. Create or reuse venv
@@ -41,16 +66,10 @@ else
 fi
 
 "$VENV_DIR/bin/python3" -m pip install --upgrade pip --quiet
-"$VENV_DIR/bin/python3" -m pip install "onnxruntime-gpu" "rembg[gpu]" pillow "numpy>=2.0,<2.5"
-# Workaround: onnxruntime-gpu may link against CUDA 13, but venv has CUDA 12 libs.
-# CUDA runtime is backward-compatible, so symlink 13 → 12.
-CUDA_LIB=$(find "$VENV_DIR" -path "*/cuda_runtime/lib" -type d 2>/dev/null | head -1)
-if [ -n "$CUDA_LIB" ] && [ -f "$CUDA_LIB/libcudart.so.12" ] && [ ! -f "$CUDA_LIB/libcudart.so.13" ]; then
-    ln -sf libcudart.so.12 "$CUDA_LIB/libcudart.so.13"
-    echo "[✓] CUDA runtime symlinked"
-fi
-# 4. Grant Flatpak D-Bus permission
-if command -v flatpak &> /dev/null && flatpak info org.gimp.GIMP &> /dev/null; then
+"$VENV_DIR/bin/python3" -m pip install "onnxruntime-gpu==1.19.2" "rembg[gpu]" pillow "numpy>=2.0,<2.5"
+
+# 4. Grant Flatpak permission (Linux only)
+if command -v flatpak &> /dev/null && flatpak info org.gimp.GIMP &> /dev/null 2>/dev/null; then
     echo ""
     echo "[→] Granting Flatpak host access permission..."
     flatpak override --user --talk-name=org.freedesktop.Flatpak org.gimp.GIMP
@@ -59,26 +78,9 @@ fi
 echo ""
 echo "============================================"
 echo " Shared engine ready at: $INSTALL_DIR"
-echo " Now install the plugins you want:"
 echo ""
-echo "  Remove Background:"
-echo "    mkdir -p ~/.config/GIMP/3.2/plug-ins/remove-background"
-echo "    cp remove-background.py run_worker.sh bg_remove_worker.py \\"
-echo "       ~/.config/GIMP/3.2/plug-ins/remove-background/"
-echo "    chmod +x ~/.config/GIMP/3.2/plug-ins/remove-background/*.py"
-echo "    chmod +x ~/.config/GIMP/3.2/plug-ins/remove-background/*.sh"
-echo ""
-echo "  Smart Object Selection:"
-echo "    mkdir -p ~/.config/GIMP/3.2/plug-ins/smart-object-selection"
-echo "    cp smart-object-selection.py run_worker.sh bg_remove_worker.py \\"
-echo "       ~/.config/GIMP/3.2/plug-ins/smart-object-selection/"
-echo "    chmod +x ~/.config/GIMP/3.2/plug-ins/smart-object-selection/*.py"
-echo ""
-echo "  AI Upscaler (needs extra step — see its README):"
-echo "    mkdir -p ~/.config/GIMP/3.2/plug-ins/ai-upscaler/bin"
-echo "    # Download realesrgan-ncnn-vulkan into bin/"
-echo "    cp ai-upscaler.py run_upscaler.sh \\"
-echo "       ~/.config/GIMP/3.2/plug-ins/ai-upscaler/"
+echo " To install a plugin, copy its files to:"
+echo "   $GIMP_PLUGINS/<plugin-name>/"
 echo ""
 echo " Restart GIMP after installing plugins."
 echo "============================================"
