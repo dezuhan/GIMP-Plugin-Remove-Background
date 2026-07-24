@@ -5,8 +5,54 @@ AI-powered background removal using [rembg](https://github.com/danielgatis/rembg
 ## Requirements
 
 - GIMP 3.2+
-- Python 3.10+
-- **GPU (optional):** NVIDIA CUDA for best speed. Falls back to CPU automatically if no GPU detected. AMD/Intel GPUs work via DirectML on Windows.
+- Python 3.10+ with `python3-venv`
+- **GPU (optional):** see [Hardware / Provider Mapping](#hardware--provider-mapping) below
+
+## Dependencies
+
+### Direct (pip-installed by `install.sh`)
+
+| Package | Required | Size | Notes |
+|---------|:--------:|------|-------|
+| `onnxruntime-gpu` | NVIDIA only | ~300 MB | CUDA acceleration (Linux/Windows) |
+| `onnxruntime-directml` | Windows GPU | ~150 MB | AMD, Intel, NVIDIA via DirectML |
+| `onnxruntime-silicon` | Apple only | ~50 MB | CoreML acceleration (M-series) |
+| `onnxruntime` (CPU) | Fallback | ~30 MB | Universal CPU — much smaller |
+| `rembg` | Required | ~10 MB | AI background removal engine |
+| `rembg[gpu]` | With CUDA | — | Meta-extra for GPU-enabled rembg |
+| `pillow` | Required | ~5 MB | Image I/O |
+| `numpy>=2.0,<2.5` | Required | ~20 MB | Array computation |
+
+Only one `onnxruntime-*` package is installed — `install.sh` auto-detects your hardware.
+
+### Sub-dependencies (pulled automatically by `rembg`)
+
+| Package | Size | Purpose |
+|---------|------|---------|
+| `opencv-python-headless` | ~25 MB | Image processing, alpha matting |
+| `scikit-image` | ~20 MB | Image filtering |
+| `scipy` | ~25 MB | Scientific computation |
+| `pymatting` | ~5 MB | Alpha matting algorithm |
+| `pooch` | ~1 MB | Model download manager |
+| `onnx` / `protobuf` | ~5 MB | ONNX model parsing |
+| `huggingface_hub` | ~10 MB | Model hub access |
+
+**Total install size**: ~200–500 MB (package-dependent). First run downloads the AI model (~176 MB) and caches it.
+
+### Hardware / Provider Mapping
+
+| Hardware | Package Installed | Execution Provider |
+|----------|------------------|-------------------|
+| NVIDIA Linux | `onnxruntime-gpu` | `CUDAExecutionProvider` |
+| NVIDIA Windows | `onnxruntime-directml` | `DmlExecutionProvider` |
+| AMD Windows | `onnxruntime-directml` | `DmlExecutionProvider` |
+| AMD Linux | `onnxruntime` (CPU) | `CPUExecutionProvider` |
+| Intel Arc/iGPU Windows | `onnxruntime-directml` | `DmlExecutionProvider` |
+| Intel iGPU Linux | `onnxruntime` (CPU) | `CPUExecutionProvider` |
+| Apple Silicon | `onnxruntime-silicon` | `CoreMLExecutionProvider` |
+| CPU-only | `onnxruntime` (CPU) | `CPUExecutionProvider` |
+
+> **Windows NVIDIA note:** install.sh defaults to DirectML (zero-config) instead of CUDA to avoid requiring a separate CUDA Toolkit installation. Falling back to CPU is always automatic.
 
 ## Install
 
