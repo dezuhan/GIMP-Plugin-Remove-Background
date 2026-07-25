@@ -56,40 +56,99 @@ Only one `onnxruntime-*` package is installed — `install.sh` auto-detects your
 
 ## Install
 
-### Linux / macOS
+### Automatic (recommended)
 
+`install.sh` detects your GPU and installs the correct ONNX Runtime package automatically.
+
+**Linux / macOS:**
 ```bash
 chmod +x install.sh && ./install.sh
 ```
 
-### Windows
-
-Install [Git Bash](https://git-scm.com/downloads/win), right-click the plugin folder → **Git Bash Here**, then run:
-
+**Windows:** Install [Git Bash](https://git-scm.com/downloads/win), right-click the plugin folder → **Git Bash Here**, then:
 ```bash
 chmod +x install.sh && ./install.sh
 ```
 
-This creates the shared Python environment at `~/.gimp-plugin-shared-venv/venv`, installs all dependencies, grants Flatpak permissions, and copies the plugin to the correct GIMP folder.
+---
 
-### Manual
+### Manual Install
+
+Pick the `onnxruntime-*` package for your hardware (see [Hardware / Provider Mapping](#hardware--provider-mapping)).
+
+#### Linux / macOS
 
 ```bash
-# 1. Create venv and install dependencies
+# 1. Install system dependencies (if missing)
+#    Debian/Ubuntu:
+sudo apt install python3 python3-venv
+#    macOS:
+brew install python3
+
+# 2. Create shared venv
 python3 -m venv ~/.gimp-plugin-shared-venv/venv
+
+# 3. Install packages (pick ONE onnxruntime package for your GPU)
 source ~/.gimp-plugin-shared-venv/venv/bin/activate
-pip install onnxruntime-gpu rembg[gpu] pillow
+pip install --upgrade pip
+
+#    NVIDIA GPU:
+pip install onnxruntime-gpu rembg[gpu] pillow "numpy>=2.0,<2.5"
+
+#    Apple Silicon:
+pip install onnxruntime-silicon rembg pillow "numpy>=2.0,<2.5"
+
+#    CPU / AMD Linux / Intel Linux:
+pip install onnxruntime rembg pillow "numpy>=2.0,<2.5"
+
 deactivate
 
-# 2. Copy plugin files
-mkdir -p ~/.config/GIMP/3.2/plug-ins/remove-background
-cp remove-background.py run_worker.sh bg_remove_worker.py \
-   ~/.config/GIMP/3.2/plug-ins/remove-background/
-chmod +x ~/.config/GIMP/3.2/plug-ins/remove-background/remove-background.py
-chmod +x ~/.config/GIMP/3.2/plug-ins/remove-background/run_worker.sh
+# 4. Copy plugin files
+PLUGINS=~/.config/GIMP/3.2/plug-ins/remove-background
+mkdir -p "$PLUGINS"
+cp remove-background.py run_worker.sh bg_remove_worker.py "$PLUGINS/"
+chmod +x "$PLUGINS/remove-background.py"
+chmod +x "$PLUGINS/run_worker.sh"
 
-# 3. Flatpak only
+# 5. Flatpak only — grant host access
 flatpak override --user --talk-name=org.freedesktop.Flatpak org.gimp.GIMP
+
+# 6. Restart GIMP → Filters → Enhance → Remove Background
+```
+
+#### Windows
+
+Run all commands in **Git Bash**:
+
+```bash
+# 1. Install Python 3.10+ from https://python.org/downloads/
+#    Check "Add Python to PATH" during install.
+#    Verify:
+py --version
+
+# 2. Create shared venv
+mkdir -p ~/.gimp-plugin-shared-venv
+py -m venv ~/.gimp-plugin-shared-venv/venv
+
+# 3. Install packages (pick ONE onnxruntime package for your GPU)
+source ~/.gimp-plugin-shared-venv/venv/Scripts/activate
+pip install --upgrade pip
+
+#    NVIDIA / AMD / Intel GPU (DirectML):
+pip install onnxruntime-directml rembg pillow "numpy>=2.0,<2.5"
+
+#    CPU only:
+pip install onnxruntime rembg pillow "numpy>=2.0,<2.5"
+
+deactivate
+
+# 4. Copy plugin files
+PLUGINS="$APPDATA/GIMP/3.2/plug-ins/remove-background"
+PLUGINS="$(echo "$PLUGINS" | sed 's|\\\\|/|g' | sed 's|C:|/c|')"
+mkdir -p "$PLUGINS"
+cp remove-background.py run_worker.sh bg_remove_worker.py "$PLUGINS/"
+
+# 5. Restart GIMP → Filters → Enhance → Remove Background
 ```
 
 ## Usage
