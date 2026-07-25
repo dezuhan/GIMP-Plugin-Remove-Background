@@ -55,6 +55,13 @@ case "$(uname -s)" in
         ;;
 esac
 
+# macOS readlink fallback
+if readlink -f "$0" &>/dev/null; then
+    PLUGIN_DIR="$(dirname "$(readlink -f "$0")")"
+else
+    PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
+
 INSTALL_DIR="$HOME/.gimp-plugin-shared-venv"
 VENV_DIR="$INSTALL_DIR/venv"
 
@@ -75,10 +82,11 @@ case "$GPU" in
     amd)
         if [ "$(uname -s)" = "Linux" ]; then
             echo "[i] AMD GPU detected. ROCm onnxruntime is not available via pip; using CPU fallback."
+            ONNX_PKG="onnxruntime"
         else
             echo "[✓] AMD GPU detected. DirectML acceleration will be used (onnxruntime-directml)."
+            ONNX_PKG="onnxruntime-directml"
         fi
-        ONNX_PKG="onnxruntime"
         REMBG_PKG="rembg"
         ;;
     intel)
@@ -141,7 +149,6 @@ fi
 
 # --- Copy Remove Background plugin files ---
 PLUGIN_TARGET="$GIMP_PLUGINS/remove-background"
-PLUGIN_DIR="$(dirname "$(readlink -f "$0")")"
 echo ""
 echo "[→] Installing Remove Background plugin to $PLUGIN_TARGET ..."
 mkdir -p "$PLUGIN_TARGET"
