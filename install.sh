@@ -4,6 +4,51 @@
 # Run this ONCE. Works on Linux, macOS, Windows (Git Bash).
 set -e
 
+# --- Platform detection ---
+case "$(uname -s)" in
+    Linux*)
+        IS_LINUX=1
+        GIMP_PLUGINS="$HOME/.config/GIMP/3.2/plug-ins"
+        VENV_PYTHON_REL="bin/python3"
+        VENV_PIP_REL="bin/pip"
+        ;;
+    Darwin*)
+        IS_MACOS=1
+        GIMP_PLUGINS="$HOME/Library/Application Support/GIMP/3.2/plug-ins"
+        VENV_PYTHON_REL="bin/python3"
+        VENV_PIP_REL="bin/pip"
+        ;;
+    CYGWIN*|MINGW*|MSYS*)
+        IS_WINDOWS=1
+        GIMP_PLUGINS="$APPDATA/GIMP/3.2/plug-ins"
+        GIMP_PLUGINS="$(echo "$GIMP_PLUGINS" | sed 's|\\|/|g' | sed 's|C:|/c|')"
+        VENV_PYTHON_REL="Scripts/python.exe"
+        VENV_PIP_REL="Scripts/pip.exe"
+        ;;
+esac
+
+# macOS readlink fallback
+if readlink -f "$0" &>/dev/null; then
+    PLUGIN_DIR="$(dirname "$(readlink -f "$0")")"
+else
+    PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
+fi
+
+# Find a working Python 3.10+ (tries python3, python, py)
+detect_python() {
+    for cmd in python3 python py; do
+        if command -v "$cmd" &> /dev/null; then
+            if "$cmd" -c "import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)" 2>/dev/null; then
+                echo "$cmd"
+                return
+            fi
+        fi
+    done
+    echo ""
+}
+
+PYTHON_CMD=$(detect_python)
+
 # --- GPU detection ---
 detect_gpu() {
     case "$(uname -s)" in
@@ -41,33 +86,25 @@ detect_gpu() {
     esac
 }
 
-# --- Platform paths ---
-case "$(uname -s)" in
-    Linux*)
-        GIMP_PLUGINS="$HOME/.config/GIMP/3.2/plug-ins"
-        ;;
-    Darwin*)
-        GIMP_PLUGINS="$HOME/Library/Application Support/GIMP/3.2/plug-ins"
-        ;;
-    CYGWIN*|MINGW*|MSYS*)
-        GIMP_PLUGINS="$APPDATA/GIMP/3.2/plug-ins"
-        GIMP_PLUGINS="$(echo "$GIMP_PLUGINS" | sed 's|\\|/|g' | sed 's|C:|/c|')"
-        ;;
-esac
-
-# macOS readlink fallback
-if readlink -f "$0" &>/dev/null; then
-    PLUGIN_DIR="$(dirname "$(readlink -f "$0")")"
-else
-    PLUGIN_DIR="$(cd "$(dirname "$0")" && pwd)"
-fi
-
 INSTALL_DIR="$HOME/.gimp-plugin-shared-venv"
 VENV_DIR="$INSTALL_DIR/venv"
+VENV_PYTHON="$VENV_DIR/$VENV_PYTHON_REL"
+VENV_PIP="$VENV_DIR/$VENV_PIP_REL"
 
 echo "============================================"
 echo " GIMP AI Plugins — Shared Engine Setup"
 echo "============================================"
+
+# --- Check Python ---
+if [ -z "$PYTHON_CMD" ]; then
+    echo ""
+    echo "[!] Python 3.10+ not found. Install it first:"
+    echo "    Linux:   sudo apt install python3 python3-venv"
+    echo "    macOS:   brew install python3"
+    echo "    Windows: https://python.org/downloads/"
+    exit 1
+fi
+echo "[✓] Found: $PYTHON_CMD ($($PYTHON_CMD --version 2>&1))"
 
 # --- GPU info ---
 GPU=$(detect_gpu)
@@ -80,7 +117,7 @@ case "$GPU" in
         REMBG_PKG="rembg[gpu]"
         ;;
     amd)
-        if [ "$(uname -s)" = "Linux" ]; then
+        if [ -n "$IS_LINUX" ]; then
             echo "[i] AMD GPU detected. ROCm onnxruntime is not available via pip; using CPU fallback."
             ONNX_PKG="onnxruntime"
         else
@@ -106,19 +143,10 @@ case "$GPU" in
         ;;
 esac
 
-# --- Check Python 3 ---
-if ! command -v python3 &> /dev/null; then
+# --- Check venv module ---
+if ! "$PYTHON_CMD" -c "import venv" &> /dev/null; then
     echo ""
-    echo "[!] Python 3 not found. Install it first:"
-    echo "    Linux:   sudo apt install python3 python3-venv"
-    echo "    macOS:   brew install python3"
-    echo "    Windows: https://python.org/downloads/"
-    exit 1
-fi
-
-if ! python3 -c "import venv" &> /dev/null; then
-    echo ""
-    echo "[!] python3-venv not available. Install it first:"
+    echo "[!] python venv module not available. Install it first:"
     echo "    Linux:   sudo apt install python3-venv"
     echo "    macOS:   pip3 install virtualenv"
     echo "    Windows: re-run Python installer and check 'pip' and 'tcl/tk'"
@@ -133,12 +161,12 @@ else
     echo ""
     echo "[→] Creating Python venv at $VENV_DIR..."
     mkdir -p "$INSTALL_DIR"
-    python3 -m venv "$VENV_DIR"
+    "$PYTHON_CMD" -m venv "$VENV_DIR"
 fi
 
 echo "[→] Installing: $ONNX_PKG  $REMBG_PKG  pillow  numpy ..."
-"$VENV_DIR/bin/python3" -m pip install --upgrade pip --quiet
-"$VENV_DIR/bin/python3" -m pip install "$ONNX_PKG" "$REMBG_PKG" pillow "numpy>=2.0,<2.5"
+"$VENV_PYTHON" -m pip install --upgrade pip --quiet
+"$VENV_PYTHON" -m pip install "$ONNX_PKG" "$REMBG_PKG" pillow "numpy>=2.0,<2.5"
 
 # --- Flatpak permission (Linux only) ---
 if command -v flatpak &> /dev/null && flatpak info org.gimp.GIMP &> /dev/null 2>/dev/null; then
